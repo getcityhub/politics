@@ -1,8 +1,10 @@
-from consts  import *
+from consts import *
 
+import os
 import requests
+import shutil
 
-def get_politicians(api_key, conn, zipcode):
+def get_politicians(api_key, conn, s3, zipcode):
     url = "https://www.googleapis.com/civicinfo/v2/representatives"
     query = {"address": zipcode, "key": api_key}
     response = requests.get(url, params=query)
@@ -57,6 +59,17 @@ def get_politicians(api_key, conn, zipcode):
             existing_data = row
 
         if existing_data == None:
+            if "photo_url" in data:
+                file_name = data["photo_url"].split("/")[-1]
+                response = requests.get(data["photo_url"], stream=True)
+                data["photo_url"] = "https://s3.amazonaws.com/cityhub/politicians/" + file_name
+
+                with open(file_name, "wb") as out_file:
+                    shutil.copyfileobj(response.raw, out_file)
+
+                s3.upload_file(file_name, "cityhub", "politicians/" + file_name)
+                os.remove(file_name)
+
             keys = []
             values = []
 
@@ -85,7 +98,6 @@ def get_politicians(api_key, conn, zipcode):
 
             check(3, "position")
             check(4, "party")
-            check(5, "photo_url")
             check(6, "email")
             check(7, "phone")
             check(8, "website")
