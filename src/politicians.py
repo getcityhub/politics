@@ -1,6 +1,9 @@
 from consts import *
 
+from PIL import Image
+
 import os
+import PIL
 import requests
 import shutil
 
@@ -60,12 +63,19 @@ def get_politicians(api_key, conn, s3, zipcode):
 
         if existing_data == None:
             if "photo_url" in data:
-                file_name = data["photo_url"].split("/")[-1]
+                file_name = data["photo_url"].split("/")[-1].split("?")[0]
                 response = requests.get(data["photo_url"], stream=True)
                 data["photo_url"] = "https://s3.amazonaws.com/cityhub/politicians/" + file_name
 
                 with open(file_name, "wb") as out_file:
                     shutil.copyfileobj(response.raw, out_file)
+
+                width = 168
+                img = Image.open(file_name)
+                width_percent = width / float(img.size[0])
+                height = int(float(img.size[1]) * float(width_percent))
+                img = img.resize((width, height), PIL.Image.ANTIALIAS)
+                img.save(file_name)
 
                 s3.upload_file(file_name, "cityhub", "politicians/" + file_name)
                 os.remove(file_name)
